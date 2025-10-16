@@ -63,32 +63,47 @@ export class DetectionService {
       // Run detection on the canvas
       const predictions = await this.model.detect(canvas);
 
-      // Filter predictions by confidence threshold (increased for phone images)
-      const validPredictions = predictions.filter(
-        (pred: any) => pred.score >= 0.6
+      // Filter out person/face detections to ignore humans
+      const nonHumanPredictions = predictions.filter(
+        (pred: any) => !["person"].includes(pred.class.toLowerCase())
       );
 
-      // Get center zone boundaries (40% width, 60% height in center)
+      // Filter predictions by confidence threshold
+      const validPredictions = nonHumanPredictions.filter(
+        (pred: any) => pred.score >= 0.65
+      );
+
+      console.log("Valid predictions:", validPredictions.map((p: any) => ({ class: p.class, score: p.score })));
+
+      // Focus on larger objects (likely from phone screen, not background)
+      // Get center 60% of the frame (phone screen area when held up)
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
-      const zoneWidth = canvas.width * 0.4;
+      const zoneWidth = canvas.width * 0.6;
       const zoneHeight = canvas.height * 0.6;
 
-      // Filter detections in center zone
+      // Filter detections in center zone and with significant size
+      const minObjectSize = (canvas.width * canvas.height) * 0.05; // At least 5% of frame
+      
       const centerDetections = validPredictions.filter((pred: any) => {
         const [x, y, width, height] = pred.bbox;
         const objCenterX = x + width / 2;
         const objCenterY = y + height / 2;
+        const objectArea = width * height;
 
-        return (
+        const inCenterZone = (
           Math.abs(objCenterX - centerX) < zoneWidth / 2 &&
           Math.abs(objCenterY - centerY) < zoneHeight / 2
         );
+
+        return inCenterZone && objectArea > minObjectSize;
       });
 
+      console.log("Center detections:", centerDetections.map((p: any) => ({ class: p.class, score: p.score })));
+
       // Check for road/traffic-related objects for "Road Clear"
-      const roadObjects = ["traffic light", "stop sign", "street", "road"];
-      const hasRoadMarkers = validPredictions.some((pred: any) => 
+      const roadObjects = ["traffic light", "stop sign"];
+      const hasRoadMarkers = centerDetections.some((pred: any) => 
         roadObjects.some(obj => pred.class.toLowerCase().includes(obj))
       );
 
@@ -124,12 +139,6 @@ export class DetectionService {
       else if (HAZARD_CONDITIONS.warning.some(hazard => label.includes(hazard))) {
         severity = "warning";
         condition = this.mapConditionName(label, "warning");
-      }
-
-      // If person detected in center, it's a danger
-      if (label === "person") {
-        severity = "danger";
-        condition = "Pedestrian Crossing";
       }
 
       return {

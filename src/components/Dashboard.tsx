@@ -61,23 +61,39 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
   useEffect(() => {
     detectionServiceRef.current = new DetectionService();
     
-    // Create engine sound (simple beep using Web Audio API)
+    // Create realistic engine VROOOOM sound
     const createEngineSound = () => {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
       
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      // Multiple oscillators for richer engine sound
+      const oscillator1 = audioContext.createOscillator();
+      const oscillator2 = audioContext.createOscillator();
+      const mainGain = audioContext.createGain();
       
-      oscillator.frequency.value = 100;
-      oscillator.type = "sawtooth";
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 1.5);
+      oscillator1.connect(mainGain);
+      oscillator2.connect(mainGain);
+      mainGain.connect(audioContext.destination);
+
+      // Deep rumbling engine sound
+      oscillator1.type = 'sawtooth';
+      oscillator1.frequency.setValueAtTime(80, audioContext.currentTime);
+      oscillator1.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.3);
+      oscillator1.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 1.5);
+
+      // Higher harmonics for richness
+      oscillator2.type = 'square';
+      oscillator2.frequency.setValueAtTime(160, audioContext.currentTime);
+      oscillator2.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.3);
+      oscillator2.frequency.exponentialRampToValueAtTime(240, audioContext.currentTime + 1.5);
+
+      // Volume envelope - loud start, gradual fade
+      mainGain.gain.setValueAtTime(0.5, audioContext.currentTime);
+      mainGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.5);
+
+      oscillator1.start(audioContext.currentTime);
+      oscillator2.start(audioContext.currentTime);
+      oscillator1.stop(audioContext.currentTime + 1.5);
+      oscillator2.stop(audioContext.currentTime + 1.5);
     };
     
     engineAudioRef.current = { play: createEngineSound } as any;
@@ -246,7 +262,9 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !canvasRef.current || !detectionServiceRef.current) return;
+
+    console.log("File uploaded:", file.name, file.type);
 
     toast.info("Analyzing Image", {
       description: "Detecting hazards in uploaded image...",
@@ -265,13 +283,19 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Draw image to canvas
+        // Set canvas size to match image
         canvas.width = img.width;
         canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+        
+        // Draw image to canvas
+        ctx.drawImage(img, 0, 0, img.width, img.height);
+
+        console.log("Image drawn on canvas, running detection...");
 
         // Detect once
         const result = await detectionServiceRef.current.detectHazards(canvas);
+        
+        console.log("Detection result for uploaded image:", result);
         
         if (result) {
           const timeToImpact = distance / ((userSpeed * 1000) / 3600);
@@ -287,7 +311,15 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
           };
 
           setAlertState(newAlertState);
-          setCurrentSpeed(newAlertState.suggestedSpeed);
+          
+          // Animate speed change
+          if (result.severity === 'danger') {
+            setCurrentSpeed(0);
+          } else if (result.severity === 'warning') {
+            setCurrentSpeed(Math.max(20, userSpeed * 0.5));
+          } else if (result.severity === 'safe') {
+            setCurrentSpeed(userSpeed);
+          }
 
           if (soundEnabled) {
             speakAlert(newAlertState);
@@ -304,6 +336,13 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
 
         URL.revokeObjectURL(url);
       };
+      
+      img.onerror = () => {
+        console.error("Failed to load image");
+        toast.error("Failed to load image");
+        URL.revokeObjectURL(url);
+      };
+      
       img.src = url;
       imageRef.current = img;
     } else if (file.type.startsWith('video/')) {
@@ -315,6 +354,9 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
         startDetection();
       }
     }
+    
+    // Reset file input
+    event.target.value = '';
   };
 
   return (
