@@ -63,18 +63,10 @@ export class DetectionService {
       // Run detection on the canvas
       const predictions = await this.model.detect(canvas);
 
-      // Filter predictions by confidence threshold
+      // Filter predictions by confidence threshold (increased for phone images)
       const validPredictions = predictions.filter(
-        (pred: any) => pred.score >= 0.5
+        (pred: any) => pred.score >= 0.6
       );
-
-      if (validPredictions.length === 0) {
-        return {
-          condition: "Road Clear",
-          confidence: 0.95,
-          severity: "safe"
-        };
-      }
 
       // Get center zone boundaries (40% width, 60% height in center)
       const centerX = canvas.width / 2;
@@ -94,12 +86,23 @@ export class DetectionService {
         );
       });
 
+      // Check for road/traffic-related objects for "Road Clear"
+      const roadObjects = ["traffic light", "stop sign", "street", "road"];
+      const hasRoadMarkers = validPredictions.some((pred: any) => 
+        roadObjects.some(obj => pred.class.toLowerCase().includes(obj))
+      );
+
       if (centerDetections.length === 0) {
-        return {
-          condition: "Road Clear",
-          confidence: 0.90,
-          severity: "safe"
-        };
+        // Only return "Road Clear" if road markers are visible
+        if (hasRoadMarkers) {
+          return {
+            condition: "Road Clear",
+            confidence: 0.85,
+            severity: "safe"
+          };
+        }
+        // Otherwise return null (no alert)
+        return null;
       }
 
       // Find highest confidence detection

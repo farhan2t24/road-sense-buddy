@@ -55,9 +55,33 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
   const streamRef = useRef<MediaStream | null>(null);
   const detectionServiceRef = useRef<DetectionService | null>(null);
   const animationFrameRef = useRef<number>();
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const engineAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     detectionServiceRef.current = new DetectionService();
+    
+    // Create engine sound (simple beep using Web Audio API)
+    const createEngineSound = () => {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 100;
+      oscillator.type = "sawtooth";
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 1.5);
+    };
+    
+    engineAudioRef.current = { play: createEngineSound } as any;
+    
     return () => {
       stopDetection();
     };
@@ -65,9 +89,14 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
 
   const startWebcam = async () => {
     try {
+      // Play engine start sound
+      if (engineAudioRef.current && soundEnabled) {
+        engineAudioRef.current.play();
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
-          facingMode: "user",
+          facingMode: "environment", // Use back camera for phone detection
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
@@ -82,7 +111,7 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
       setIsActive(true);
       setCurrentSpeed(userSpeed);
       toast.success("System Active", {
-        description: "Camera initialized and detection started",
+        description: "Camera ready - show phone images to detect hazards",
       });
 
       startDetection();
@@ -166,20 +195,22 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
 
           setAlertState(newAlertState);
 
-          // Adjust speed based on alert
+          // Adjust speed based on alert with smooth animation
           setCurrentSpeed(prev => {
             if (newAlertState.level === "danger") {
               return Math.max(0, prev - 5);
             } else if (newAlertState.level === "warning") {
               return Math.max(newAlertState.suggestedSpeed, prev - 2);
             } else {
-              return Math.min(userSpeed, prev + 1);
+              return Math.min(userSpeed, prev + 0.5);
             }
           });
 
-          // Voice alert
-          if (soundEnabled && result.confidence > 0.5) {
-            speakAlert(newAlertState);
+          // Voice alert (only for danger/warning or first Road Clear)
+          if (soundEnabled && result.confidence > 0.6) {
+            if (result.severity !== "safe" || alertState.level !== "safe") {
+              speakAlert(newAlertState);
+            }
           }
         }
       } catch (error) {
@@ -217,17 +248,72 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    toast.info("File Upload", {
-      description: "Processing uploaded file...",
+    toast.info("Analyzing Image", {
+      description: "Detecting hazards in uploaded image...",
     });
 
-    // Handle image or video file
     const url = URL.createObjectURL(file);
-    if (videoRef.current) {
-      videoRef.current.src = url;
-      await videoRef.current.play();
-      startDetection();
-      setIsActive(true);
+    
+    // Check if it's an image or video
+    if (file.type.startsWith('image/')) {
+      // Handle image: analyze once
+      const img = new Image();
+      img.onload = async () => {
+        if (!canvasRef.current || !detectionServiceRef.current) return;
+        
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Draw image to canvas
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        // Detect once
+        const result = await detectionServiceRef.current.detectHazards(canvas);
+        
+        if (result) {
+          const timeToImpact = distance / ((userSpeed * 1000) / 3600);
+          
+          const newAlertState: AlertState = {
+            level: result.severity,
+            condition: result.condition,
+            confidence: result.confidence,
+            timeToImpact,
+            suggestedSpeed: result.severity === "danger" ? 0 : 
+                           result.severity === "warning" ? Math.max(20, userSpeed * 0.5) : 
+                           userSpeed,
+          };
+
+          setAlertState(newAlertState);
+          setCurrentSpeed(newAlertState.suggestedSpeed);
+
+          if (soundEnabled) {
+            speakAlert(newAlertState);
+          }
+
+          toast.success("Detection Complete", {
+            description: `${result.condition} detected with ${(result.confidence * 100).toFixed(0)}% confidence`,
+          });
+        } else {
+          toast.info("No Hazards Detected", {
+            description: "No road hazards found in the image",
+          });
+        }
+
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+      imageRef.current = img;
+    } else if (file.type.startsWith('video/')) {
+      // Handle video: play and detect continuously
+      if (videoRef.current) {
+        videoRef.current.src = url;
+        await videoRef.current.play();
+        setIsActive(true);
+        startDetection();
+      }
     }
   };
 
@@ -356,10 +442,9 @@ export const Dashboard = ({ onBack }: DashboardProps) => {
                     onClick={() => document.getElementById("file-upload")?.click()}
                     variant="outline"
                     className="w-full"
-                    disabled={isActive}
                   >
                     <Upload className="w-4 h-4 mr-2" />
-                    Upload Image/Video
+                    Upload Image for Detection
                   </Button>
                 </div>
               </div>
