@@ -8,89 +8,148 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 4%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 0 0% 80%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Safety alert colors */
+    --alert-danger: 0 72% 51%;
+    --alert-danger-glow: 0 100% 50%;
+    --alert-warning: 45 93% 47%;
+    --alert-warning-glow: 45 100% 51%;
+    --alert-safe: 142 71% 45%;
+    --alert-safe-glow: 142 76% 50%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Dashboard colors */
+    --dashboard-bg: 0 0% 6%;
+    --panel-bg: 0 0% 10%;
+    --gauge-track: 0 0% 18%;
+    
+    /* Gradients */
+    --gradient-danger: linear-gradient(135deg, hsl(0 72% 51% / 0.2), hsl(0 100% 50% / 0.05));
+    --gradient-warning: linear-gradient(135deg, hsl(45 93% 47% / 0.2), hsl(45 100% 51% / 0.05));
+    --gradient-safe: linear-gradient(135deg, hsl(142 71% 45% / 0.2), hsl(142 76% 50% / 0.05));
+    
+    /* Shadows */
+    --shadow-danger: 0 0 40px hsl(0 100% 50% / 0.4);
+    --shadow-warning: 0 0 40px hsl(45 100% 51% / 0.3);
+    --shadow-safe: 0 0 30px hsl(142 76% 50% / 0.3);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+}
 
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+@layer base {
+  * {
+    @apply border-border;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+@layer utilities {
+  .alert-danger {
+    @apply bg-[hsl(var(--alert-danger))];
+    box-shadow: var(--shadow-danger);
+  }
+  
+  .alert-warning {
+    @apply bg-[hsl(var(--alert-warning))];
+    box-shadow: var(--shadow-warning);
+  }
+  
+  .alert-safe {
+    @apply bg-[hsl(var(--alert-safe))];
+    box-shadow: var(--shadow-safe);
+  }
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+  @keyframes pulse-danger {
+    0%, 100% { 
+      opacity: 1;
+      box-shadow: 0 0 40px hsl(0 100% 50% / 0.6);
+    }
+    50% { 
+      opacity: 0.8;
+      box-shadow: 0 0 60px hsl(0 100% 50% / 0.8);
+    }
+  }
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+  @keyframes pulse-warning {
+    0%, 100% { 
+      opacity: 1;
+      box-shadow: 0 0 30px hsl(45 100% 51% / 0.5);
+    }
+    50% { 
+      opacity: 0.9;
+      box-shadow: 0 0 50px hsl(45 100% 51% / 0.7);
+    }
+  }
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+  @keyframes pulse-safe {
+    0%, 100% { 
+      opacity: 1;
+    }
+    50% { 
+      opacity: 0.95;
+    }
+  }
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+  @keyframes slideIn {
+    from {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+  .animate-pulse-danger {
+    animation: pulse-danger 1s ease-in-out infinite;
+  }
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+  .animate-pulse-warning {
+    animation: pulse-warning 1.5s ease-in-out infinite;
+  }
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+  .animate-pulse-safe {
+    animation: pulse-safe 2s ease-in-out infinite;
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
